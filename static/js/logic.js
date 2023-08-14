@@ -1,88 +1,92 @@
-// console.log("hello")
+// Store our API endpoint as queryUrl.
+let queryUrl = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson";
 
-// Create the createMap function
+// Perform a GET request to the query URL/
+d3.json(queryUrl).then(function (data) {
+  // Once we get a response, send the data.features object to the createFeatures function.
+  createFeatures(data.features);
+});
+
+function createFeatures(earthquakeData) {
+
+  // Define a function that we want to run once for each feature in the features array.
+  // Give each feature a popup that describes the place and time of the earthquake.
+  function onEachFeature(feature, layer) {
+    layer.bindPopup(`<h3>${feature.properties.place}</h3><hr><p>${new Date(feature.properties.ids)}</h3><hr><p>${new Date(feature.properties.mag)}</p>`);
+  }
+    function depth_colors(value){
+      if (value <=10){return "#61FF33"};
+      if (value <=30){return "#FFFC33"};
+      if (value <=50){return "#FFB233"};
+      if (value <=70){return "#FF9333"};
+      if (value <=90){return "#EC4416"};
+      return "#FA0B03"
+  }
+
+
+  // Create a GeoJSON layer that contains the features array on the earthquakeData object.
+  // Run the onEachFeature function once for each piece of data in the array.
+  let earthquakes = L.geoJSON(earthquakeData, {
+    onEachFeature: onEachFeature,
+ 
+    pointToLayer: function (feature, latlng) {
+          return L.circleMarker(latlng, {
+            radius:feature.properties.mag*5,
+            fillColor: depth_colors(feature.geometry.coordinates[2]),
+            color: "Black",
+            weight: 1,
+            fillOpacity: 0.8
+          })
+    }
+
+  });
+
+  // Send our earthquakes layer to the createMap function/
+  createMap(earthquakes);
+}
+
 function createMap(earthquakes) {
 
-    // Create the tile layer that will be the background of our map.
-    let baseLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    });
-  
-    // Create a baseMaps object to hold the streetmap layer.
-    let baseMapLayer = {
-      "Street Map": baseLayer
-    };
-  
-    // Create an overlayMaps object to hold the earthquakes layer.
-    let overlayMapLayer = {
-      "Earthquakes": earthquakes
-    };
-  
-    // Create the map object with options.
-    let map = L.map("map", {
-      center: [40.73, -74.0059],
-      zoom: 2,
-      layers: [baseLayer, earthquakes]
-    });
-  
-    // Create a layer control, and pass it baseMaps and overlayMaps. Add the layer control to the map.
-    L.control.layers(baseMapLayer, overlayMapLayer, {
-      collapsed: false
-    }).addTo(map);
-    legend.addTo(map)
-  }
-  
-  function depth_colors(value){
-    if (value <=10){return "#61FF33"};
-    if (value <=30){return "#FFFC33"};
-    if (value <=50){return "#FFB233"};
-    if (value <=70){return "#FF9333"};
-    if (value <=90){return "#EC4416"};
-    return "#FA0B03"
-    
-  }
-//   {
-//    if earthquakesArray[i].properties.mag <-10&>10
-//    then color: 'green',
-//    fillColor: 'green'
-//   }
+  // Create the base layers.
+  let street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  })
 
-  // Create a function to createMarkers 
-  function createMarkers() 
-  {
-    d3.json("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson").then(function(res)
-    {
-    // Pull the "features" property from response.data.
-    let earthquakesArray = res.features
-    // Initialize an array to hold features markers(individual earthquakes).
-    let featureMarkers = [];
-  
-    // Loop through the features array.
-    for (let i = 0; i < earthquakesArray.length; i++) 
-    {
-    // // // // //let station = stations[index];
-  
-    // For each earthquake, create a marker, and bind a popup with some information about the earthquake.
-    // size: magnitude color: depth
+  let topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+    attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+  });
 
+  // Create a baseMaps object.
+  let baseMaps = {
+    "Street Map": street,
+    "Topographic Map": topo
+  };
 
-    let mark = L.circle([earthquakesArray[i].geometry.coordinates[0], earthquakesArray[i].geometry.coordinates[1]],(earthquakesArray[i].properties.mag)*100000,
-        {
-        color: 'black',
-        fillColor: depth_colors(earthquakesArray[i].properties.mag)
-        })
-        .bindPopup(`place: ${earthquakesArray[i].properties.place} - id: ${earthquakesArray[i].id} - magnitude: ${earthquakesArray[i].properties.mag} - depth: ${earthquakesArray[i].geometry.coordinates[2]}`)
+  // Create an overlay object to hold our overlay.
+  let overlayMaps = {
+    Earthquakes: earthquakes
+  };
   
-    // Add the marker to the featureMarkers array.
-      featureMarkers.push(mark)
-    }
-    // Create a layer group that's made from the feature markers array, and pass it to the createMap function.
-    let bLayerGroup = L.layerGroup(featureMarkers)
   
-    createMap(bLayerGroup)
+  // Create our map, giving it the streetmap and earthquakes layers to display on load.
+  let myMap = L.map("map", {
+    center: [
+      37.09, -95.71
+    ],
+    zoom: 5,
+    layers: [street, earthquakes]
+  });
 
-    })
-  }
-    // Perform an API call to get data for the past 7 days, all earthquakes. Call CreateMarkers when it is done.
-    createMarkers()
+  
+  //  let mark = L.circle([features.geometry.coordinates[0],features.geometry.coordinates[1]], features.geometry.coordinates[2], {
+  //   color: 'black',
+  //    fillColor: 'black'
+  //  })
+  // Create a layer control.
+  // Pass it our baseMaps and overlayMaps.
+  // Add the layer control to the map.
+  L.control.layers(baseMaps, overlayMaps, {
+    collapsed: false
+  }).addTo(myMap);
 
+}
